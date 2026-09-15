@@ -82,10 +82,10 @@ class PauseAndCapture(Node):
                 ...  # Timeout of 0.5 seconds to wait for the transform
             )
 
-            transformed_points = ... # Transform the point cloud with the transform_pointclod2 function
+            transformed_points = ... # Transform the point cloud with the transform_pointcloud2 function
 
             if self.icp_accumulated_points:
-                icp_aligned = self.perform_icp(transformed_points, self.icp_accumulated_points)
+                icp_aligned = self.perform_icp(self.icp_accumulated_points, transformed_points)
                 self.icp_accumulated_points.extend(icp_aligned)
                 self.publish_icp_merged_cloud(scan_msg.header.stamp)
                 self.get_logger().info(f"ICP-aligned and merged {len(icp_aligned)} points.")
@@ -105,7 +105,7 @@ class PauseAndCapture(Node):
 
 
     #TODO: Complete the rotate_point_euler in transform_pointcloud2 functios
-    #Note that ros iherently processes point clouds in 3d even though the robot's point cloud is in 2d.
+    #Note that ros inherently processes point clouds in 3d even though the robot's point cloud is in 2d.
 
     def transform_pointcloud2(self, cloud_msg: PointCloud2, transform: TransformStamped) -> list[tuple[int, int, int]]:
         """Transform a point cloud using Euler angles from a given quaternion."""
@@ -161,7 +161,7 @@ class PauseAndCapture(Node):
         2. Build KDTree for target cloud, cKdtree from scipy
         3. Find nearest neighbors from source to tgt
         4. Compute centroids of matched source and target points
-        5. Center both poibt clouds by subtracting their centroids
+        5. Center both point clouds by subtracting their centroids
         6. Compute the cross-covariance matrix
         7. SVD on step 6
         8. Compute rotation matrix R from SVD, np.linalg.svd will help

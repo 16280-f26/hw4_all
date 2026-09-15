@@ -11,9 +11,9 @@ This is a stand alone code and does not require ROS
 --- TBD --- indicates the section to fill out   
 ... indicates the specific place to type the code
 
-NOTE: In the main function, there is a paremeter skip_pose, where the program will skip
+NOTE: In the main function, there is a parameter skip_pose, where the program will skip
 every skip_pose number of poses to speed up the process. You can set it to 1 to use all
-the poses, but it will take longer to run. Ideally we reccommend ~25 for initial testing 
+the poses, but it will take longer to run. Ideally we recommend ~25 for initial testing 
 but want it at 5 for the final results
 
 """
