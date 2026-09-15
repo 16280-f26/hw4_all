@@ -1,19 +1,24 @@
+'''
+This node merges points from the Lidar laser scan with the 
+transformation between accumulated and scanned points'''
+import math
+import threading
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 
 from sensor_msgs.msg import LaserScan, PointCloud2, PointField
 from std_msgs.msg import Header
 from laser_geometry import LaserProjection
 import tf2_ros
 from tf2_ros import TransformException
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 import sensor_msgs_py.point_cloud2 as pc2
-import math
 import numpy as np
-import threading
 
+# pylint: disable=too-many-instance-attributes
 class PauseAndCapture(Node):
+    """Start of the pointcloud merging node"""
     def __init__(self):
         super().__init__('pause_and_capture')
 
@@ -21,7 +26,7 @@ class PauseAndCapture(Node):
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
         self.laser_projector = LaserProjection()
 
-        
+
         qos_profile = QoSProfile(depth=10, reliability=QoSReliabilityPolicy.SYSTEM_DEFAULT)
         # Set up the subscription for LaserScan message
         # HINT: Publish on the '/scan' topic
@@ -42,11 +47,13 @@ class PauseAndCapture(Node):
         self.get_logger().info("PauseAndCapture node started. Press Enter to capture a scan.")
 
     def key_press_listener(self):
+        """Waits for terminal input to capture scan"""
         while True:
             input(">> Press Enter to capture scan: ")
             self.capture_enabled = True
 
     def scan_callback(self, scan_msg):
+        """Callback function from scan message"""
         if not self.capture_enabled:
             return
 
@@ -59,6 +66,7 @@ class PauseAndCapture(Node):
         self.delay_timer = self.create_timer(0.1, self.delayed_transform_lookup)
 
     def delayed_transform_lookup(self):
+        """Requests transform between pointclouds"""
         self.delay_timer.cancel()
         scan_msg = self.latest_scan
         self.latest_scan = None
@@ -67,12 +75,16 @@ class PauseAndCapture(Node):
             cloud_in_laser = self.laser_projector.projectLaser(scan_msg)
 
             #TODO:
-            # Perform a lookup to transform the point cloud from its original frame to the 'odom' frame
+            # Perform a lookup to transform the point cloud from its original
+            #frame to the 'odom' frame
             transform = self.tf_buffer.lookup_transform(
                 'odom', # Target frame
-                scan_msg.header.frame_id,# Source frame (the point cloud's original frame)
-                rclpy.time.Time(),  # Timestamp of the scan message to ensure proper time synchronization
-                timeout=rclpy.duration.Duration(seconds=0.5)  # Timeout of 0.5 seconds to wait for the transform
+                # Source frame (the point cloud's original frame)
+                scan_msg.header.frame_id,
+                # Timestamp of the scan message to ensure proper time synchronization
+                rclpy.time.Time(),
+                # Timeout of 0.5 seconds to wait for the transform
+                timeout=rclpy.duration.Duration(seconds=0.5)
             )
 
             transformed_points = self.transform_pointcloud2(cloud_in_laser, transform)
@@ -86,7 +98,7 @@ class PauseAndCapture(Node):
     # -------------------- TODO -------------------- #
     def transform_pointcloud2(self, cloud_msg, transform):
         """Transform a point cloud using Euler angles from a given quaternion."""
-        
+
         # Helper function to convert quaternion to Euler angles (roll, pitch, yaw)
         def quaternion_to_euler(q):
             """Convert quaternion to Euler angles (roll, pitch, yaw)."""
@@ -99,9 +111,12 @@ class PauseAndCapture(Node):
         # Given a point in 3D and its rotation angles, construct a series
         # of rotation matrices and apply them to the point
         # HINT: Yaw @ Pitch @ Roll
+
+        # pylint: disable=too-many-positional-arguments
+        # pylint: disable=too-many-arguments
         def rotate_point_euler(x, y, z, roll, pitch, yaw) -> tuple[int, int, int]:
             pass
-        
+
 
 
         # Extract translation and rotation (quaternion) from the transform
@@ -114,20 +129,21 @@ class PauseAndCapture(Node):
         transformed_points = []
         for pt in pc2.read_points(cloud_msg, field_names=("x", "y", "z"), skip_nans=True):
             x, y, z = pt
-            
+
             #TODO:
             # Apply rotation to the point using Euler angles use the rotate point euler function
             ...
 
             #TODO:
             # Apply translation to the rotated point using the variable t
-            ... 
+            ...
             # Append transformed point
             ...
 
         return transformed_points
 
     def publish_accumulated_cloud(self, stamp):
+        """Publishes full cloud up to current scan"""
         header = Header()
         header.stamp = stamp
         header.frame_id = "odom"
@@ -143,6 +159,7 @@ class PauseAndCapture(Node):
         self.get_logger().info("Published accumulated cloud.")
 
 def main(args=None):
+    """Main function to spin ROS node"""
     rclpy.init(args=args)
     node = PauseAndCapture()
     try:

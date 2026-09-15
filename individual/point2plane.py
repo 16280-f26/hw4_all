@@ -1,9 +1,3 @@
-import re
-import math
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.spatial import cKDTree
-
 """
 
 This starter code provides code base to implement point to plane ICP for HW4 Q3
@@ -18,6 +12,11 @@ but want it at 5 for the final results
 
 """
 
+import re
+import math
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.spatial import cKDTree
 
 class DataParser:
     """Parses odometry and scan data from log files.
@@ -35,14 +34,18 @@ class DataParser:
         self.theta = []
 
     def quaternion_to_yaw(self, z, w):
+        """Calculate yaw from quat"""
         return math.atan2(2.0 * w * z, 1.0 - 2.0 * z * z)
 
+    # pylint: disable=too-many-locals
     def parse_odom(self):
+        """Parses odometry"""
         results = []
         x = []
         y = []
         yaw = []
         timestamp = []
+        # pylint: disable=unspecified-encoding
         with open(self.odom_path, 'r') as f:
             timestamp_ = None
             for line in f:
@@ -50,9 +53,11 @@ class DataParser:
                 if line.startswith("# Time:"):
                     timestamp_ = float(line.split(":")[1].strip())
                 elif line.startswith("nav_msgs.msg.Odometry("):
-                    pos_match = re.search(r"position=geometry_msgs\.msg\.Point\(x=([-\de.E]+), y=([-\de.E]+)", line)
+                    pos_match = re.search(r"position=geometry_msgs\.msg\.Point\
+                                          (x=([-\de.E]+), y=([-\de.E]+)", line)
                     ori_match = re.search(
-                        r"orientation=geometry_msgs\.msg\.Quaternion\(x=[-\de.E]+, y=[-\de.E]+, z=([-\de.E]+), w=([-\de.E]+)",
+                        r"orientation=geometry_msgs\.msg\.Quaternion\(x=[-\de.E]+, \
+                         y=[-\de.E]+, z=([-\de.E]+), w=([-\de.E]+)",
                         line)
                     if pos_match and ori_match and timestamp_ is not None:
                         x_ = float(pos_match.group(1))
@@ -72,7 +77,10 @@ class DataParser:
         self.theta = np.array(yaw)
         print("No. of odom parsed: ", self.theta.shape)
 
+    # pylint: disable=too-many-locals
     def parse_scan(self):
+        """Parses each scan"""
+        # pylint: disable=unspecified-encoding
         with open(self.scan_path, 'r') as f:
             text = f.read()
         entries = text.split("# Time:")
@@ -83,7 +91,8 @@ class DataParser:
         for entry in entries[1:]:
             time_match = re.search(r'(\d+\.\d+)', entry)
             scan_match = re.search(
-                r'angle_min=([\-\d.e]+), angle_max=([\-\d.e]+), angle_increment=([\-\d.e]+),.*?ranges=\[(.*?)\]', entry,
+                r'angle_min=([\-\d.e]+), angle_max=([\-\d.e]+), \
+                    angle_increment=([\-\d.e]+),.*?ranges=\[(.*?)\]', entry,
                 re.DOTALL)
             if time_match and scan_match:
                 angle_min_ = float(scan_match.group(1))
@@ -100,12 +109,16 @@ class DataParser:
 
 
 class Point2PlaneICP:
+    """ICP calculation"""
+    # pylint: disable=redefined-outer-name
     def __init__(self, parser, skip_pose=10):
         self.parser = parser
         self.skip_pose = skip_pose
         self.accumulated_points = []
-        self.visualize_normal = False  # set this to true to visualize the normals
-        self.normal_simple = True  # use this to switch between a simple and more robust normal estimation
+        # set this to true to visualize the normals
+        self.visualize_normal = False
+        # use this to switch between a simple and more robust normal estimation
+        self.normal_simple = True
 
     def ranges_to_xy(self, ranges, angles):
         """
@@ -124,6 +137,7 @@ class Point2PlaneICP:
         Odomtery based point cloud merge. here used for good initialization. Borrowed from HW4
         """
         x, y, theta = pose
+        # pylint: disable=invalid-name
         R = np.array([
             [np.cos(theta), -np.sin(theta)],
             [np.sin(theta), np.cos(theta)]
@@ -151,7 +165,8 @@ class Point2PlaneICP:
             - this gives you a central difference approximation of the tangent
             - then rotate 90 deg to get the normal
             - e.g. tangent = p[i + 1] - p[i - 1] = [4, 5] - [2, 3] = [2, 2]
-            - step 3: flip this tangent to get the normal. i.e. normal = [-tangent[1], tangent[0]] = [-2, 2]
+            - step 3: flip this tangent to get the normal. i.e. normal
+              = [-tangent[1], tangent[0]] = [-2, 2]
         - step 4: find the normal = normal / norm(normal)
         - step 5: the sensor_origin is used to align normals in the same directions
         - step 6: append to the list normals[]
@@ -162,13 +177,14 @@ class Point2PlaneICP:
         normals = []
         for _ in range(...):
             ...
-            
+
         return np.array(normals)
 
     def compute_normals_pca(self, points, tree, sensor_origin, k=10):
         """
         More sophisticated way to compute normals. Here using PCA
-        This was not explicitly covered in class but similar to the concept of SVD principal directions
+        This was not explicitly covered in class but similar to the concept
+        sof SVD principal directions
         Use this function to visualize normals and compare it to your method
         """
         normals = []
@@ -185,7 +201,9 @@ class Point2PlaneICP:
             normals.append(normal)
         return np.array(normals)
 
-    def icp_point_to_plane(self, source_points, target_points, target_sensor_origin, max_iterations=15):
+    # pylint: disable=too-many-locals
+    def icp_point_to_plane(self, source_points, target_points, \
+                           target_sensor_origin, max_iterations=15):
 
         """
         This is the main function that computes the point to plane ICP
@@ -195,7 +213,8 @@ class Point2PlaneICP:
         tgt = np.copy(target_points)
         tree = cKDTree(tgt)
 
-        if self.normal_simple:  # a mechanism to switch between your normals and the robust normals estimates
+        # a mechanism to switch between your normals and the robust normals estimates
+        if self.normal_simple:
             normals = self.compute_normals(tgt, target_sensor_origin)
         else:
             normals = self.compute_normals_pca(tgt, tree, target_sensor_origin, k=8)
@@ -205,13 +224,16 @@ class Point2PlaneICP:
 
 
         # ----------------------- TBD -------------------
+        # pylint: disable=unpacking-non-sequence
         for _ in range(max_iterations):
             _, indices = ...  # use kd tree for initial association.
             matched_pts = ...    # get the matched points from target PCL using the kd tree index
             matched_normals = ...  # get the matched normals using the kd tree index
+            # pylint: disable=invalid-name
             A, b = [], []
             for p, q, n in zip(src, matched_pts, matched_normals):
-                # using δ, n (normals) form the parts of the linear system i.e. A and b as the system is Ax=b
+                # using δ, n (normals) form the parts of the linear system
+                # i.e. A and b as the system is Ax=b
                 # refer to the lecture slides for more details on the equations
                 # A = [n Rp n] is the matrix form, use the linearized form for the Rp
                 #   i.e. A = [n · [-py, px], nx, ny]
@@ -219,17 +241,18 @@ class Point2PlaneICP:
                 # when working with vectors, use dot product where applicable
                 # Append A and b to the list
 
-                ... 
+                ...
 
+            # pylint: disable=invalid-name
             A = np.array(A)
             b = np.array(b)
 
             # use the np.linalg.lstsq() to solve for the least square.
-            #    This function performs SVD in the background but is more stable to conventional SVD.
+            # This function performs SVD in the background but is more stable to conventional SVD.
             # extract the angle, tx, ty from the above step
             # form a rotation matrix, and a translation vector
             # transform the source using the R and t from above
-            #    alternatively form a homogeneous transformation matrix and transform the source
+            # alternatively form a homogeneous transformation matrix and transform the source
             # return source point cloud
 
             ...
@@ -263,7 +286,8 @@ class Point2PlaneICP:
         plt.plot(x, y, marker='o', markersize=2, linestyle='-', label="Odometry Path")
         dx = np.cos(theta)
         dy = np.sin(theta)
-        plt.quiver(x[::10], y[::10], dx[::10], dy[::10], angles='xy', scale_units='xy', scale=15, color='r',
+        plt.quiver(x[::10], y[::10], dx[::10], dy[::10], angles='xy',
+                   scale_units='xy', scale=15, color='r',
                    width=0.005, label='Orientation')
         plt.title("Odometry Trajectory with Orientation")
         plt.xlabel("x [m]")
@@ -273,6 +297,7 @@ class Point2PlaneICP:
         plt.legend()
         plt.show()
 
+    # pylint: disable=too-many-locals
     def run_icp(self):
         """
         This is the function that reads the data and runs icp in loop
@@ -288,7 +313,8 @@ class Point2PlaneICP:
             angles = np.linspace(angle_mins[i], angle_maxs[i], len(r))
             local_pts = self.ranges_to_xy(r, angles)
             pose = (x[i], y[i], theta[i])
-            initialized_pts = self.transform_points(local_pts, pose)  # this step makes it easier for icp to converge
+            # this step makes it easier for icp to converge
+            initialized_pts = self.transform_points(local_pts, pose)
             sensor_origin = np.array([pose[0], pose[1]])
             if accumulated_pc is None:
                 accumulated_pc = initialized_pts
@@ -300,6 +326,7 @@ class Point2PlaneICP:
             print(f"Progress: {np.round(i / len(ranges) * 100.0, 2)}%", end='\r')
 
     def plot_map(self):
+        """Plots map"""
         plt.figure(figsize=(8, 8))
         for pc in self.accumulated_points:
             plt.scatter(pc[:, 0], pc[:, 1], s=1)
@@ -320,4 +347,3 @@ if __name__ == "__main__":
     mapper.visualize_odom()
     mapper.run_icp()
     mapper.plot_map()
-
