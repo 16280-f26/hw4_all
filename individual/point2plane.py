@@ -53,11 +53,9 @@ class DataParser:
                 if line.startswith("# Time:"):
                     timestamp_ = float(line.split(":")[1].strip())
                 elif line.startswith("nav_msgs.msg.Odometry("):
-                    pos_match = re.search(r"position=geometry_msgs\.msg\.Point\
-                                          (x=([-\de.E]+), y=([-\de.E]+)", line)
+                    pos_match = re.search(r"position=geometry_msgs\.msg\.Point\(x=([-\de.E]+), y=([-\de.E]+)", line)
                     ori_match = re.search(
-                        r"orientation=geometry_msgs\.msg\.Quaternion\(x=[-\de.E]+, \
-                         y=[-\de.E]+, z=([-\de.E]+), w=([-\de.E]+)",
+                        r"orientation=geometry_msgs\.msg\.Quaternion\(x=[-\de.E]+, y=[-\de.E]+, z=([-\de.E]+), w=([-\de.E]+)",
                         line)
                     if pos_match and ori_match and timestamp_ is not None:
                         x_ = float(pos_match.group(1))
@@ -91,8 +89,7 @@ class DataParser:
         for entry in entries[1:]:
             time_match = re.search(r'(\d+\.\d+)', entry)
             scan_match = re.search(
-                r'angle_min=([\-\d.e]+), angle_max=([\-\d.e]+), \
-                    angle_increment=([\-\d.e]+),.*?ranges=\[(.*?)\]', entry,
+                r'angle_min=([\-\d.e]+), angle_max=([\-\d.e]+), angle_increment=([\-\d.e]+),.*?ranges=\[(.*?)\]', entry,
                 re.DOTALL)
             if time_match and scan_match:
                 angle_min_ = float(scan_match.group(1))
